@@ -1,0 +1,10 @@
+# --- VS code ---
+*.vscode
+
+# --- C/C++ ---
+**.exe
+**.out
+**.o
+**/build
+**/obj
+**/.ccls-cache
