@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
         sthread_join(tids[i], NULL);
 
     queue_destroy(files);
+    counter_del(arg.counter);
 
     return EXIT_SUCCESS;
 }
@@ -62,11 +63,6 @@ static void *worker(void *arg) {
     arg_t *arg1 = (arg_t *)arg;
     struct sockaddr_un *sa = (struct sockaddr_un *)arg1->sa;
     queue_t *files = (queue_t *)arg1->files;
-
-    data_t data;
-    char *path;
-    double *num_array = NULL;
-    size_t num_array_len = 0;
 
     int fd_skt;
 
@@ -84,6 +80,11 @@ static void *worker(void *arg) {
         errno = 0;
     }
 
+    double *num_array = NULL;
+    size_t num_array_len = 0;
+    data_t data;
+    char *path;
+    memset((void *)&data, 0, sizeof(data));
     data.n = 0;
     path = (char *)queue_pop(files);
     while (path != STOP) {
@@ -116,6 +117,7 @@ static void *worker(void *arg) {
 
     close(fd_skt);
     unlink(SOK_NAME);
+    free(num_array);
 
     return EXIT_SUCCESS;
 }
