@@ -4,6 +4,7 @@
 #include "error_handling_utils.h"
 #include "tsqueue.h"
 #include "pthread_utils.h"
+#include "simple_socket.h"
 #include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -15,7 +16,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#define SOK_NAME "./soket634318"
+#define SOK_NAME "./socket634318"
 #define SUN_MAX_LEN 108
 #define STOP_STR "stop"
 

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "error_handling_utils.h"
+#include <errno.h>
 
 /* TEXIT stand for Thread EXIT*/
 #define ERR_TEXIT(cond, msg)                                                   \

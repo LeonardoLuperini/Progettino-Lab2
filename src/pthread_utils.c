@@ -31,8 +31,9 @@ inline void mtx_init(pthread_mutex_t *mutex) {
 
 /* Like pthread_mutex_destroy(mutex) but exit the thread when get an error */
 inline void mtx_destroy(pthread_mutex_t *mutex) {
-    ERR_TEXIT(pthread_mutex_destroy(mutex) != 0,
-              "Error pthread_mutex_destroy\n");
+    int res = pthread_mutex_destroy(mutex);
+    if (res)
+        errno = res;
 }
 
 /* Like pthread_cond_init(cond, NULL) but exit the thread when get an error */
@@ -74,5 +75,9 @@ tscounter_t *counter_init(uint val) {
 
 void counter_del(tscounter_t *counter) {
     mtx_destroy(&counter->mtx);
+    if (errno != 0) {
+        perror("Error pthread_mutex_destroy");
+        pthread_exit((void *)EXIT_FAILURE);
+    }
     free(counter);
 }
