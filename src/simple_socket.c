@@ -1,6 +1,6 @@
 #include "simple_socket.h"
 
-struct sockaddr_un *sa_init(char *skt_name) {
+struct sockaddr_un *sa_un_init(char *skt_name) {
     struct sockaddr_un *sa = malloc(sizeof(struct sockaddr_un));
     ERR_RET(sa == NULL, NULL);
     memset((void *)sa, 0, sizeof(struct sockaddr_un));
