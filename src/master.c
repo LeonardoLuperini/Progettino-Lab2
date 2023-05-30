@@ -68,9 +68,7 @@ static void *worker(void *arg) {
     arg_t *arg1 = (arg_t *)arg;
     struct sockaddr *sa = arg1->sa;
 
-    int fd_skt;
-
-    fd_skt = socket_for_sa(sa, SOCK_STREAM, 0);
+    int fd_skt = socket_for_sa(sa, SOCK_STREAM, 0);
     ERR_PERROR_EXIT(fd_skt == -1, "Error socket");
 
     simple_connect(fd_skt, sa);
