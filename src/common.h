@@ -17,7 +17,8 @@
 #include <unistd.h>
 #include <limits.h>
 
-#define SKT_NAME "./socket634318"
+#define SKT_ADDRESS "127.0.0.1"
+#define PORT 34318
 #define SUN_MAX_LEN 108
 #define STOP_STR "stop"
 

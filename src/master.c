@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     queue_t *files = queue_init();
     ERR_PRINT_EXIT(files == NULL, "Error queue_init\n");
 
-    struct sockaddr_un *sa = sa_un_init(SKT_NAME);
+    struct sockaddr_in *sa = sa_in_init(SKT_ADDRESS, PORT);
 
     for (size_t i = 0; i < nworker; i++) {
         arg[i].files = files;
@@ -59,7 +59,6 @@ int main(int argc, char *argv[]) {
     free(sa);
     counter_del(c);
     queue_destroy(files);
-    unlink(SKT_NAME);
 
     return EXIT_SUCCESS;
 }

@@ -29,13 +29,12 @@ int main(void) {
 
     DPRINT("Starting server...\n");
 
-    struct sockaddr *sa = (struct sockaddr *)sa_un_init(SKT_NAME);
+    struct sockaddr *sa = (struct sockaddr *)sa_in_init(SKT_ADDRESS, PORT);
     ERR_PRINT_EXIT(sa == NULL, "Error sa_un_init\n")
 
     int fd_listen_skt = socket_for_sa(sa, SOCK_STREAM, 0);
     ERR_PERROR_EXIT(fd_listen_skt == -1, "Error socket");
 
-    unlink(SKT_NAME);
     bind(fd_listen_skt, sa, sizeof(*sa));
 
     arg_t arg;
@@ -94,7 +93,6 @@ int main(void) {
     queue_destroy(clients);
     counter_del(c);
     close(fd_listen_skt);
-    unlink(SKT_NAME);
 
     return EXIT_SUCCESS;
 }
