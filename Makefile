@@ -27,7 +27,7 @@ COL_DEBOBJS	:= $(COL_SRCS:$(SRC)/%.c=$(DEBFOL)/%.o)
 
 TESTDIR 	:= ./testdir
 
-.PHONY: all clean deb test1 test2 test3 test4
+.PHONY: all val deb clean test1 test2 test3 test4 test5 test6 testfun
 
 all: $(BUILDFOL) $(OBJFOL) $(RELFOL) $(MAS) $(COL)
 
@@ -43,18 +43,22 @@ $(RELFOL)/%.o: $(SRC)/%.c
 
 -include $(RELFOL)/*.d
 
-deb: $(BUILDFOL) $(OBJFOL) $(DEBFOL) $(DEB_MAS) $(DEB_COL) 
+val: CFLAGS += -g 
+val: $(BUILDFOL) $(OBJFOL) $(DEBFOL) $(DEB_MAS) $(DEB_COL) 
 
 $(DEB_MAS): $(MAS_DEBOBJS) 
-	$(CC) -g -DDEBUG $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(DEB_COL): $(COL_DEBOBJS) 
-	$(CC) -g -DDEBUG $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(DEBFOL)/%.o: $(SRC)/%.c 
-	$(CC) -g -DDEBUG $(CFLAGS) $(CPPFLAGS) -MMD -MP -MF $(DEBFOL)/$*.d -o $@ -c $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -MMD -MP -MF $(DEBFOL)/$*.d -o $@ -c $<
 
 -include $(DEBFOL)/*.d
+
+deb: CFLAGS += -DDEBUG
+deb: val
 
 $(DEBFOL):
 	@mkdir -p $(DEBFOL)
@@ -74,11 +78,20 @@ test1: all
 test2: all
 	$(MAS) 5 $(TESTDIR) & $(COL)
 
-test3: all
-	valgrind $(MAS) 5 $(TESTDIR) & valgrind $(COL)
+test3: val
+	valgrind $(DEB_MAS) 5 $(TESTDIR) & valgrind $(DEB_COL)
 
-test4: all
-	valgrind $(COL) & valgrind $(MAS) 5 $(TESTDIR) 
+test4: val
+	valgrind $(DEB_COL) & valgrind $(DEB_MAS) 5 $(TESTDIR) 
+
+test5: deb
+	valgrind $(DEB_MAS) 5 $(TESTDIR) & valgrind $(DEB_COL)
+
+test6: deb
+	valgrind $(DEB_COL) & valgrind $(DEB_MAS) 5 $(TESTDIR) 
+
+testfun: all
+	$(MAS) 1000 $(TESTDIR) & $(COL)
 
 clean:
 	rm -fr $(BUILDFOL) $(OBJFOL) ./socket634318

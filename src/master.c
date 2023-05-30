@@ -1,5 +1,6 @@
 #include "common.h"
 #include "files.h"
+#include "simple_socket.h"
 #include "statistic.h"
 #include <dirent.h>
 
@@ -12,18 +13,17 @@
 
 typedef struct arg {
     queue_t *files;
-    struct sockaddr_un *sa;
+    struct sockaddr *sa;
     tscounter_t *counter;
     size_t nworker;
-#ifdef DEBUG
-    unsigned int n;
-#endif
 } arg_t;
 
 static void get_cli_input(int argc, char **argv, size_t *nworker, char **path);
 static bool str_is_size(char *str);
+static void stop_server(int fd_skt, tscounter_t *c, size_t nworker);
 static void search_datfiles(char *path, queue_t *files);
 static void *worker(void *arg);
+static void compute_and_send(int fd_skt, queue_t *files);
 
 int main(int argc, char *argv[]) {
     size_t nworker;
@@ -31,23 +31,19 @@ int main(int argc, char *argv[]) {
     tscounter_t *c = counter_init(1);
 
     get_cli_input(argc, argv, &nworker, &path);
-    // DPRINT("nworker: %lu\npath: %s\n", nworker, path);
     pthread_t tids[nworker];
     arg_t arg[nworker];
 
     queue_t *files = queue_init();
     ERR_PRINT_EXIT(files == NULL, "Error queue_init\n");
 
-    struct sockaddr_un *sa = sa_un_init(SOK_NAME);
+    struct sockaddr_un *sa = sa_un_init(SKT_NAME);
 
     for (size_t i = 0; i < nworker; i++) {
         arg[i].files = files;
-        arg[i].sa = sa;
+        arg[i].sa = (struct sockaddr *)sa;
         arg[i].counter = c;
         arg[i].nworker = nworker;
-#ifdef DEBUG
-        arg[i].n = i;
-#endif
         sthread_create(&tids[i], worker, (void *)&arg[i]);
         DPRINT("Created %d\n", arg[i].n);
     }
@@ -63,56 +59,41 @@ int main(int argc, char *argv[]) {
     free(sa);
     counter_del(c);
     queue_destroy(files);
-    unlink(SOK_NAME);
+    unlink(SKT_NAME);
 
     return EXIT_SUCCESS;
 }
 
 static void *worker(void *arg) {
     arg_t *arg1 = (arg_t *)arg;
-    struct sockaddr_un *sa = (struct sockaddr_un *)arg1->sa;
-    queue_t *files = (queue_t *)arg1->files;
-    tscounter_t *c = arg1->counter;
-#ifdef DEBUG
-    unsigned int n = arg1->n;
-#endif
+    struct sockaddr *sa = arg1->sa;
 
     int fd_skt;
 
-    DPRINT("%u: Hello\n", n);
-
-    // Soket
-    fd_skt = socket(AF_UNIX, SOCK_STREAM, 0);
+    fd_skt = socket_for_sa(sa, SOCK_STREAM, 0);
     ERR_PERROR_EXIT(fd_skt == -1, "Error socket");
 
-    DPRINT("%u: try to connect to %s\n", n, SOK_NAME);
-    size_t refused_counter = 0;
-    while (connect(fd_skt, (struct sockaddr *)sa, sizeof(*sa)) == -1) {
-        if (errno == ECONNREFUSED && refused_counter < 5) {
-            refused_counter++;
-            errno = 0;
-            sleep(5);
-            continue;
-        }
-        ERR_PERROR_EXIT(errno != ENOENT, "Error connect");
-        DPRINT("%u: retry to connect to %s\terrno = %d\n", n, SOK_NAME, errno);
-        sleep(1);
-        errno = 0;
-    }
+    simple_connect(fd_skt, sa);
 
-    DPRINT("%u: connected to %s\n", n, SOK_NAME);
+    compute_and_send(fd_skt, arg1->files);
 
+    stop_server(fd_skt, arg1->counter, arg1->nworker);
+
+    close(fd_skt);
+
+    return EXIT_SUCCESS;
+}
+
+static void compute_and_send(int fd_skt, queue_t *files) {
     double *num_array = NULL;
     size_t num_array_len = 0;
-    data_t data;
     char *path;
+    data_t data;
     memset((void *)&data, 0, sizeof(data));
     data.n = 0;
     path = (char *)queue_pop(files);
     while (path != STOP) {
-        DPRINT("%u: %s\n", n, path);
-
-        file_to_array(path, &num_array, &num_array_len, &(data.n));
+        file_to_array(path, &num_array, &num_array_len, &data.n);
         data.avg = avg(num_array, data.n);
         data.std = std(num_array, data.n);
         strcpy(data.path, path);
@@ -120,12 +101,17 @@ static void *worker(void *arg) {
         free(path);
         path = (char *)queue_pop(files);
     }
+    free(num_array);
+}
 
+static void stop_server(int fd_skt, tscounter_t *c, size_t nworker) {
     mtx_lock(&c->mtx);
-    if (c->val < arg1->nworker) {
+    if (c->val < nworker) {
         (c->val)++;
         mtx_unlock(&c->mtx);
     } else {
+        data_t data;
+        memset((void *)&data, 0, sizeof(data));
         data.n = 0;
         data.std = -1;
         data.avg = -1;
@@ -133,11 +119,6 @@ static void *worker(void *arg) {
         write(fd_skt, &data, sizeof(data_t));
         mtx_unlock(&c->mtx);
     }
-
-    close(fd_skt);
-    free(num_array);
-
-    return EXIT_SUCCESS;
 }
 
 static void search_datfiles(char *path, queue_t *files) {
@@ -166,7 +147,6 @@ static void search_datfiles(char *path, queue_t *files) {
             if (strcmp(fext, ".dat") == 0) {
                 newpath = malloc(sizeof(char) * PATH_MAX);
                 ERR_PRINT_EXIT(newpath == NULL, "Error malloc\n");
-                // DPRINT("deb: %s\n", fname);
                 concat_path(path, fname, newpath);
                 ERR_PRINT_EXIT(!queue_push(files, (void *)newpath),
                                "Error queue_push");

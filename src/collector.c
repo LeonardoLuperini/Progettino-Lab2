@@ -7,7 +7,7 @@
     printf("\n");
 
 #define PRINT_HEADER()                                                         \
-    printf("%-10s %-10s %-10s %-20s\n", "n", "avg", "std", "file");            \
+    printf("%-10s %-15s %-15s %-20s\n", "n", "avg", "std", "file");            \
     NPRINTF("-", 50);
 
 #define NTHREADS 12
@@ -29,14 +29,14 @@ int main(void) {
 
     DPRINT("Starting server...\n");
 
-    int fd_listen_skt = socket(AF_UNIX, SOCK_STREAM, 0);
-    ERR_PERROR_EXIT(fd_listen_skt == -1, "Error socket");
-
-    struct sockaddr_un *sa = sa_un_init(SOK_NAME);
+    struct sockaddr *sa = (struct sockaddr *)sa_un_init(SKT_NAME);
     ERR_PRINT_EXIT(sa == NULL, "Error sa_un_init\n")
 
-    unlink(SOK_NAME);
-    bind(fd_listen_skt, (struct sockaddr *)sa, sizeof(*sa));
+    int fd_listen_skt = socket_for_sa(sa, SOCK_STREAM, 0);
+    ERR_PERROR_EXIT(fd_listen_skt == -1, "Error socket");
+
+    unlink(SKT_NAME);
+    bind(fd_listen_skt, sa, sizeof(*sa));
 
     arg_t arg;
     arg.queue = clients;
@@ -83,6 +83,7 @@ int main(void) {
             exit(EXIT_FAILURE);
         }
     }
+
     DPRINT("Waiting for threads to finish...\n");
     for (size_t i = 0; i < NTHREADS; i++) {
         sthread_join(tids[i], NULL);
@@ -93,7 +94,7 @@ int main(void) {
     queue_destroy(clients);
     counter_del(c);
     close(fd_listen_skt);
-    unlink(SOK_NAME);
+    unlink(SKT_NAME);
 
     return EXIT_SUCCESS;
 }
@@ -120,7 +121,7 @@ void *thread(void *arg) {
                 queue_push(a->queue, (void *)&stop);
                 break;
             }
-            printf("%lu\t%lf\t%lf\t%s\n", data.n, data.avg, data.std,
+            printf("%-10lu %-15lf %-15lf %-20s\n", data.n, data.avg, data.std,
                    data.path);
         }
         if (readres == -1) {
