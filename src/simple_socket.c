@@ -18,7 +18,7 @@ struct sockaddr_in *sa_in_init(char *address, uint16_t port) {
 
     sa->sin_family = AF_INET;
     sa->sin_port = htons(port);
-    ERR_PRINT_EXIT(inet_pton(AF_INET, address, &sa->sin_addr),
+    ERR_PRINT_EXIT(inet_pton(AF_INET, address, &sa->sin_addr) == 0,
                    "Error inet_pton: Invalid address\n");
 
     return sa;
